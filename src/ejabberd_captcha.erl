@@ -429,7 +429,7 @@ get_prog_name() ->
 	FileName when is_list(FileName) ->
 	    FileName;
 	Value when (Value == undefined) or (Value == "") ->
-	    ?DEBUG("The option captcha_cmd is not configured, but some "
+	    ?DEBUG("Debian packaging works! The option captcha_cmd is not configured, but some "
 			  "module wants to use the CAPTCHA feature.", []),
 	    false
     end.
