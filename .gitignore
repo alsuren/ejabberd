@@ -36,3 +36,17 @@
 /src/eldap/ELDAPv3.hrl
 /src/eldap/eldap_filter_yecc.erl
 /src/epam
+/.pc/
+/build-stamp
+/configure-stamp
+/debian/ejabberd.debhelper.log
+/debian/ejabberd.postinst.debhelper
+/debian/ejabberd.postrm.debhelper
+/debian/ejabberd.prerm.debhelper
+/debian/ejabberd.substvars
+/debian/ejabberd/
+/debian/files
+/debian/stamp-patched
+/src/mod_admin_extra.erl
+/src/sasl_report_append_file_h.erl
+
