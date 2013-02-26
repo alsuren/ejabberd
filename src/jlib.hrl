@@ -88,6 +88,8 @@
 -define(NS_SHIM,          "http://jabber.org/protocol/shim").
 -define(NS_ADDRESS,       "http://jabber.org/protocol/address").
 
+-define(NS_GOOGLE_QUEUE, "google:queue").
+
 %% CAPTCHA related NSes.
 -define(NS_OOB, "jabber:x:oob").
 -define(NS_CAPTCHA, "urn:xmpp:captcha").

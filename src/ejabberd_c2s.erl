@@ -1107,6 +1107,10 @@ session_established2(El, StateData) ->
 				 Xmlns == ?NS_BLOCKING ->
 				process_privacy_iq(
 				  FromJID, ToJID, IQ, StateData);
+			    #iq{xmlns = Xmlns} = IQ
+			    when Xmlns == ?NS_GOOGLE_QUEUE ->
+                                process_google_queue_iq(
+                                  FromJID, ToJID, IQ, StateData);
 			    _ ->
 				ejabberd_hooks:run(
 				  user_send_packet,
@@ -2090,6 +2094,30 @@ process_privacy_iq(From, To,
 			 StateData#state{privacy_list = NewPrivList}};
 		    R -> {R, StateData}
 		end
+	end,
+    IQRes =
+	case Res of
+	    {result, Result} ->
+		IQ#iq{type = result, sub_el = Result};
+	    {error, Error} ->
+		IQ#iq{type = error, sub_el = [SubEl, Error]}
+	end,
+    ejabberd_router:route(
+      To, From, jlib:iq_to_xml(IQRes)),
+    NewStateData.
+
+
+process_google_queue_iq(From, To,
+		   #iq{type = Type, sub_el = SubEl} = IQ,
+		   StateData) ->
+    {Res, NewStateData} =
+	case Type of
+	    get ->
+		R = {error, ?ERR_FEATURE_NOT_IMPLEMENTED},
+		{R, StateData};
+	    set ->
+		R = {error, ?ERR_FEATURE_NOT_IMPLEMENTED},
+		{R, StateData}
 	end,
     IQRes =
 	case Res of
