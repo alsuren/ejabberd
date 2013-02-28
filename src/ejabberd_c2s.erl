@@ -2144,7 +2144,11 @@ process_fb_suspend_iq(From, To,
 		R = {error, ?ERR_FEATURE_NOT_IMPLEMENTED},
 		{R, StateData};
 	    set ->
-		R = {result, [SubEl]},
+                R = case SubEl of
+                    [{xmlelement, "sleep", _}] -> {result, [SubEl]};
+                    [{xmlelement, "wake", _}] -> {result, [SubEl]};
+                    _ -> {error, ?ERR_INTERNAL_SERVER_ERROR}
+                end,
 		{R, StateData}
 	end,
     IQRes =
