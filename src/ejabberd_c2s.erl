@@ -2144,13 +2144,13 @@ process_fb_suspend_iq(From, To,
 		R = {error, ?ERR_FEATURE_NOT_IMPLEMENTED},
 		{R, StateData};
 	    set ->
-		R = {result},
+		R = {result, [SubEl]},
 		{R, StateData}
 	end,
     IQRes =
 	case Res of
-	    {result} ->
-                IQ#iq{type = result, sub_el = []};
+	    {result, Result} ->
+                IQ#iq{type = result, sub_el = Result};
 	    {error, Error} ->
 		IQ#iq{type = error, sub_el = [SubEl, Error]}
 	end,
