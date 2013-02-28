@@ -2150,7 +2150,7 @@ process_fb_suspend_iq(From, To,
     IQRes =
 	case Res of
 	    {result} ->
-		IQ#iq{type = result};
+                IQ#iq{type = result, sub_el = []};
 	    {error, Error} ->
 		IQ#iq{type = error, sub_el = [SubEl, Error]}
 	end,
