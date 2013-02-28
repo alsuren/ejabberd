@@ -1111,6 +1111,10 @@ session_established2(El, StateData) ->
 			    when Xmlns == ?NS_GOOGLE_QUEUE ->
                                 process_google_queue_iq(
                                   FromJID, ToJID, IQ, StateData);
+			    #iq{xmlns = Xmlns} = IQ
+			    when Xmlns == ?NS_FB_SUSPEND ->
+                                process_fb_suspend_iq(
+                                  FromJID, ToJID, IQ, StateData);
 			    _ ->
 				ejabberd_hooks:run(
 				  user_send_packet,
@@ -2129,6 +2133,35 @@ process_google_queue_iq(From, To,
     ejabberd_router:route(
       To, From, jlib:iq_to_xml(IQRes)),
     NewStateData.
+
+
+process_fb_suspend_iq(From, To,
+		   #iq{type = Type, sub_el = SubEl} = IQ,
+		   StateData) ->
+    {Res, NewStateData} =
+	case Type of
+	    get ->
+		R = {error, ?ERR_FEATURE_NOT_IMPLEMENTED},
+		{R, StateData};
+	    set ->
+                R = case SubEl of
+                    {xmlelement, "sleep", _} -> {result, [SubEl]};
+                    {xmlelement, "wake", _} -> {result, [SubEl]};
+                    _ -> {error, ?ERR_INTERNAL_SERVER_ERROR}
+                end,
+		{R, StateData}
+	end,
+    IQRes =
+	case Res of
+	    {result, Result} ->
+                IQ#iq{type = result, sub_el = Result};
+	    {error, Error} ->
+		IQ#iq{type = error, sub_el = [SubEl, Error]}
+	end,
+    ejabberd_router:route(
+      To, From, jlib:iq_to_xml(IQRes)),
+    NewStateData.
+
 
 
 resend_offline_messages(StateData) ->

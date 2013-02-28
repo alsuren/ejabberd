@@ -89,6 +89,7 @@
 -define(NS_ADDRESS,       "http://jabber.org/protocol/address").
 
 -define(NS_GOOGLE_QUEUE, "google:queue").
+-define(NS_FB_SUSPEND, "http://www.facebook.com/xmpp/suspend").
 
 %% CAPTCHA related NSes.
 -define(NS_OOB, "jabber:x:oob").
