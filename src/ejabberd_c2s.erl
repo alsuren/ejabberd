@@ -2145,8 +2145,8 @@ process_fb_suspend_iq(From, To,
 		{R, StateData};
 	    set ->
                 R = case SubEl of
-                    [{xmlelement, "sleep", _}] -> {result, [SubEl]};
-                    [{xmlelement, "wake", _}] -> {result, [SubEl]};
+                    {xmlelement, "sleep", _} -> {result, [SubEl]};
+                    {xmlelement, "wake", _} -> {result, [SubEl]};
                     _ -> {error, ?ERR_INTERNAL_SERVER_ERROR}
                 end,
 		{R, StateData}
