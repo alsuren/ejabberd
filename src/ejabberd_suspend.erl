@@ -70,6 +70,14 @@
         max_inactivity,
         output = []}).
 
+% This is what's passed back to ejabberd_c2s as the opaque "socket" datastructure
+% There is redundancy here, but it simplifies the wrapping/unwrapping process,
+% and reduces the amount of bullshit data that gets send to proceses' mailboxes.
+-record(sockdata, {
+        sockmod,
+        socket,
+        fsmref}).
+
 -define(DBGFSM, true).
 
 -ifdef(DBGFSM).
@@ -86,36 +94,36 @@
 %% Description:
 %%--------------------------------------------------------------------
 
-sleep(ejabberd_suspend, State, _Data) ->
-    {already_asleep, ejabberd_suspend, State};
+sleep(ejabberd_suspend, SockData, _Data) ->
+    {already_asleep, ejabberd_suspend, SockData};
 sleep(SockMod, Socket, []) ->
-    StartedState = start([Socket, SockMod], []),
-    {ok, ejabberd_suspend, StartedState};
+    {ok, Pid} = start_link([Socket, SockMod], []),
+    {ok, ejabberd_suspend, #sockdata{sockmod = SockMod, socket = Socket, fsmref = Pid}};
 sleep(SockMod, Socket, _Data) ->
     {notimplemented, SockMod, Socket}.
 
-wake(ejabberd_suspend, SocketData, Data) ->
-    #suspend_state{sockmod = SockMod, socket = Socket} = SocketData,
-    gen_fsm:sync_send_all_state_event(SocketData#suspend_state.fsmref, {flush_socket}),
+wake(ejabberd_suspend, SockData, Data) ->
+    gen_fsm:sync_send_all_state_event(SockData#sockdata.fsmref, {wake}),
     %% Take ourself out of the equation (note that we don't actually intercept
     %% any c2s traffic: only s2c traffic, so we just need to shut ourselves down
     %% and return the original sockmod and socket that we were passed.
+    #sockdata{sockmod = SockMod, socket = Socket} = SockData,
     (SockMod):send(Socket, Data),
     {ok, SockMod, Socket};
 wake(SockMod, Socket, _) ->
     {already_awake, SockMod, Socket}.
 
-flush(ejabberd_suspend, SocketData, Data) ->
-    #suspend_state{sockmod = SockMod, socket = Socket} = SocketData,
-    gen_fsm:sync_send_all_state_event(SocketData#suspend_state.fsmref, {flush_socket}),
+flush(ejabberd_suspend, SockData, Data) ->
+    #sockdata{fsmref = FsmRef, sockmod = SockMod, socket = Socket} = SockData,
+    gen_fsm:sync_send_all_state_event(FsmRef, {flush_socket}),
     (SockMod):send(Socket, Data),
-    {ok, ejabberd_suspend, SocketData}.
+    {ok, ejabberd_suspend, FsmRef}.
 
-send(SocketData, Packet) ->
-    gen_fsm:sync_send_all_state_event(SocketData#suspend_state.fsmref, {send, Packet}).
+send(#sockdata{fsmref = FsmRef}, Packet) ->
+    gen_fsm:sync_send_all_state_event(FsmRef, {send, Packet}).
 
-send_xml(SocketData, Packet) ->
-    gen_fsm:sync_send_all_state_event(SocketData#suspend_state.fsmref, {send_xml, Packet}).
+send_xml(#sockdata{fsmref = FsmRef}, Packet) ->
+    gen_fsm:sync_send_all_state_event(FsmRef, {send_xml, Packet}).
 
 handle_sync_event({send_xml, Packet}, _From, StateName, StateData) ->
     Output = [Packet | StateData#suspend_state.output],
@@ -124,21 +132,21 @@ handle_sync_event({send_xml, Packet}, _From, StateName, StateData) ->
 
 %% Blindly proxy these calls down the chain.
 reset_stream(SocketData) ->
-    (SocketData#suspend_state.sockmod):reset_stream(SocketData#suspend_state.socket).
+    (SocketData#sockdata.sockmod):reset_stream(SocketData#sockdata.socket).
 
 change_shaper(SocketData, Shaper) ->
-    (SocketData#suspend_state.sockmod):change_shaper(SocketData#suspend_state.socket, Shaper).
+    (SocketData#sockdata.sockmod):change_shaper(SocketData#sockdata.socket, Shaper).
 
 monitor(SocketData) ->
-    (SocketData#suspend_state.sockmod):monitor(SocketData#suspend_state.socket).
+    (SocketData#sockdata.sockmod):monitor(SocketData#sockdata.socket).
 
 get_sockmod(SocketData) ->
-    SocketData#suspend_state.sockmod.
+    SocketData#sockdata.sockmod.
 
 close(SocketData) ->
-    (SocketData#suspend_state.sockmod):close(SocketData#suspend_state.socket).
+    (SocketData#sockdata.sockmod):close(SocketData#sockdata.socket).
 
-sockname(#suspend_state{sockmod = SockMod, socket = Socket}) ->
+sockname(#sockdata{sockmod = SockMod, socket = Socket}) ->
     case SockMod of
 	gen_tcp ->
 	    inet:sockname(Socket);
@@ -146,7 +154,7 @@ sockname(#suspend_state{sockmod = SockMod, socket = Socket}) ->
 	    SockMod:sockname(Socket)
     end.
 
-peername(#suspend_state{sockmod = SockMod, socket = Socket}) ->
+peername(#sockdata{sockmod = SockMod, socket = Socket}) ->
     case SockMod of
 	gen_tcp ->
 	    inet:peername(Socket);
