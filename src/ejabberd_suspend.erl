@@ -31,7 +31,7 @@
 -define(MAX_INACTIVITY, 30000). % msecs to wait before terminating
                                 % idle sessions
 
--define(GEN_FSM, gen_fsm).
+-define(GEN_FSM, p1_fsm).
 
 -behaviour(?GEN_FSM).
 
@@ -47,6 +47,7 @@
          handle_info/3,
          init/1,
          terminate/3,
+         print_state/1,
 	 reset_stream/1,
 	 send/2,
 	 send_xml/2,
@@ -77,14 +78,9 @@
 -define(FSMOPTS, []).
 -endif.
 
-%% Module start with or without supervisor:
--ifdef(NO_TRANSIENT_SUPERVISORS).
--define(SUPERVISOR_START, ?GEN_FSM:start(ejabberd_c2s, [SockData, Opts],
+%% May be a lie. I still need to read up on supervisors ;)
+-define(SUPERVISOR_START, ?GEN_FSM:start(?MODULE, [SockData, Opts],
 					 fsm_limit_opts(Opts) ++ ?FSMOPTS)).
--else.
--define(SUPERVISOR_START, supervisor:start_child(ejabberd_c2s_sup,
-						 [SockData, Opts])).
--endif.
 
 %%====================================================================
 %% API
@@ -98,7 +94,7 @@ start(SockData, Opts) ->
     ?SUPERVISOR_START.
 
 start_link(SockData, Opts) ->
-    ?GEN_FSM:start_link(ejabberd_c2s, [SockData, Opts],
+    ?GEN_FSM:start_link(?MODULE, [SockData, Opts],
 			fsm_limit_opts(Opts) ++ ?FSMOPTS).
 
 sleep(ejabberd_suspend, SocketData, _Data) ->
@@ -254,6 +250,9 @@ terminate(_Reason, _StateName, _StateData) ->
 
 code_change(_OldVsn, StateName, StateData, _Extra) ->
     {ok, StateName, StateData}.
+
+print_state(StateData) ->
+    StateData.
 
 %%====================================================================
 %% Internal functions
