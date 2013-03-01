@@ -89,9 +89,7 @@
 sleep(ejabberd_suspend, State, _Data) ->
     {already_asleep, ejabberd_suspend, State};
 sleep(SockMod, Socket, []) ->
-    State = #suspend_state{sockmod = SockMod,
-        socket = Socket},
-    StartedState = start(State, []),
+    StartedState = start([Socket, SockMod], []),
     {ok, ejabberd_suspend, StartedState};
 sleep(SockMod, Socket, _Data) ->
     {notimplemented, SockMod, Socket}.
@@ -157,11 +155,11 @@ peername(#suspend_state{sockmod = SockMod, socket = Socket}) ->
     end.
 
 
-start(SockData, Opts) ->
-    ?GEN_FSM:start(?MODULE, SockData, fsm_limit_opts(Opts) ++ ?FSMOPTS).
+start([Socket, SockMod], Opts) ->
+    ?GEN_FSM:start(?MODULE, [Socket, SockMod], fsm_limit_opts(Opts) ++ ?FSMOPTS).
 
-start_link(SockData, Opts) ->
-    ?GEN_FSM:start_link(?MODULE, SockData,
+start_link([Socket, SockMod], Opts) ->
+    ?GEN_FSM:start_link(?MODULE, [Socket, SockMod],
 			fsm_limit_opts(Opts) ++ ?FSMOPTS).
 
 
@@ -176,12 +174,12 @@ start_link(SockData, Opts) ->
 %%          ignore                              |
 %%          {stop, StopReason}
 %%----------------------------------------------------------------------
-init([State]) ->
-    #suspend_state{socket = Socket, sockmod = SockMod} = State,
+init([Socket, SockMod]) ->
     Timer = erlang:start_timer(?MAX_INACTIVITY, self(), []),
     SocketMonitor = SockMod:monitor(Socket),
     {ok, sleeping,
-        State#suspend_state{ socket_monitor = SocketMonitor, timer = Timer},
+        #suspend_state{ socket = Socket, sockmod = SockMod,
+            socket_monitor = SocketMonitor, timer = Timer},
         ?MAX_INACTIVITY}.
 
 %%----------------------------------------------------------------------
