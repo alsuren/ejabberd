@@ -2145,21 +2145,30 @@ process_fb_suspend_iq(From, To,
 		{R, StateData};
 	    set ->
                 R = case SubEl of
-                    {xmlelement, "sleep", _} -> {result, [SubEl]};
-                    {xmlelement, "wake", _} -> {result, [SubEl]};
-                    _ -> {error, ?ERR_INTERNAL_SERVER_ERROR}
+                    {xmlelement, "sleep", _, _} -> 
+                        ejabberd_suspend:sleep(StateData#state.sockmod, StateData#state.socket, {result, [SubEl]});
+                    {xmlelement, "wake", _, _} -> {result, [SubEl]};
+                    _ -> ?ERROR_MSG("Couldn't match '~p' against '~p' or '~p'",
+                            [SubEl,
+                                {xmlelement, "sleep", "_"},
+                                {xmlelement, "wake", "_"}]),
+                        {error, ?ERR_INTERNAL_SERVER_ERROR}
                 end,
 		{R, StateData}
 	end,
     IQRes =
 	case Res of
+            {ok, _} -> ok;
 	    {result, Result} ->
                 IQ#iq{type = result, sub_el = Result};
 	    {error, Error} ->
 		IQ#iq{type = error, sub_el = [SubEl, Error]}
 	end,
-    ejabberd_router:route(
-      To, From, jlib:iq_to_xml(IQRes)),
+    if IQRes == ok -> ok;
+        true ->
+            ejabberd_router:route(
+                To, From, jlib:iq_to_xml(IQRes))
+    end,
     NewStateData.
 
 
