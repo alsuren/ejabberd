@@ -59,7 +59,7 @@
 
 -include("ejabberd.hrl").
 
--record(state, {
+-record(suspend_state, {
         sockmod,
         socket,
         socket_monitor,
@@ -100,7 +100,7 @@ start_link(SockData, Opts) ->
 sleep(ejabberd_suspend, SocketData, _Data) ->
     {already_asleep, ejabberd_suspend, SocketData};
 sleep(SockMod, Socket, []) ->
-    SocketData = #state{sockmod = SockMod,
+    SocketData = #suspend_state{sockmod = SockMod,
         socket = Socket},
     StartedSocketData = start(SocketData, []),
     {ok, ejabberd_suspend, StartedSocketData};
@@ -108,8 +108,8 @@ sleep(SockMod, Socket, _Data) ->
     {notimplemented, SockMod, Socket}.
 
 wake(ejabberd_suspend, SocketData, Data) ->
-    #state{sockmod = SockMod, socket = Socket} = SocketData,
-    gen_fsm:sync_send_all_state_event(SocketData#state.fsmref, {flush_socket}),
+    #suspend_state{sockmod = SockMod, socket = Socket} = SocketData,
+    gen_fsm:sync_send_all_state_event(SocketData#suspend_state.fsmref, {flush_socket}),
     %% Take ourself out of the equation (note that we don't actually intercept
     %% any c2s traffic: only s2c traffic, so we just need to shut ourselves down
     %% and return the original sockmod and socket that we were passed.
@@ -119,39 +119,39 @@ wake(SockMod, Socket, _) ->
     {already_awake, SockMod, Socket}.
 
 flush(ejabberd_suspend, SocketData, Data) ->
-    #state{sockmod = SockMod, socket = Socket} = SocketData,
-    gen_fsm:sync_send_all_state_event(SocketData#state.fsmref, {flush_socket}),
+    #suspend_state{sockmod = SockMod, socket = Socket} = SocketData,
+    gen_fsm:sync_send_all_state_event(SocketData#suspend_state.fsmref, {flush_socket}),
     (SockMod):send(Socket, Data),
     {ok, ejabberd_suspend, SocketData}.
 
 send(SocketData, Packet) ->
-    gen_fsm:sync_send_all_state_event(SocketData#state.fsmref, {send, Packet}).
+    gen_fsm:sync_send_all_state_event(SocketData#suspend_state.fsmref, {send, Packet}).
 
 send_xml(SocketData, Packet) ->
-    gen_fsm:sync_send_all_state_event(SocketData#state.fsmref, {send_xml, Packet}).
+    gen_fsm:sync_send_all_state_event(SocketData#suspend_state.fsmref, {send_xml, Packet}).
 
 handle_sync_event({send_xml, Packet}, _From, StateName, StateData) ->
-    Output = [Packet | StateData#state.output],
+    Output = [Packet | StateData#suspend_state.output],
     Reply = ok,
-    {reply, Reply, StateName, StateData#state{output = Output}}.
+    {reply, Reply, StateName, StateData#suspend_state{output = Output}}.
 
 %% Blindly proxy these calls down the chain.
 reset_stream(SocketData) ->
-    (SocketData#state.sockmod):reset_stream(SocketData#state.socket).
+    (SocketData#suspend_state.sockmod):reset_stream(SocketData#suspend_state.socket).
 
 change_shaper(SocketData, Shaper) ->
-    (SocketData#state.sockmod):change_shaper(SocketData#state.socket, Shaper).
+    (SocketData#suspend_state.sockmod):change_shaper(SocketData#suspend_state.socket, Shaper).
 
 monitor(SocketData) ->
-    (SocketData#state.sockmod):monitor(SocketData#state.socket).
+    (SocketData#suspend_state.sockmod):monitor(SocketData#suspend_state.socket).
 
 get_sockmod(SocketData) ->
-    SocketData#state.sockmod.
+    SocketData#suspend_state.sockmod.
 
 close(SocketData) ->
-    (SocketData#state.sockmod):close(SocketData#state.socket).
+    (SocketData#suspend_state.sockmod):close(SocketData#suspend_state.socket).
 
-sockname(#state{sockmod = SockMod, socket = Socket}) ->
+sockname(#suspend_state{sockmod = SockMod, socket = Socket}) ->
     case SockMod of
 	gen_tcp ->
 	    inet:sockname(Socket);
@@ -159,7 +159,7 @@ sockname(#state{sockmod = SockMod, socket = Socket}) ->
 	    SockMod:sockname(Socket)
     end.
 
-peername(#state{sockmod = SockMod, socket = Socket}) ->
+peername(#suspend_state{sockmod = SockMod, socket = Socket}) ->
     case SockMod of
 	gen_tcp ->
 	    inet:peername(Socket);
@@ -188,7 +188,7 @@ init([{SockMod, Socket}, _Opts]) ->
 			Socket
 		end,
 	    SocketMonitor = SockMod:monitor(Socket1),
-	    {ok, sleeping,        #state{socket         = Socket1,
+	    {ok, sleeping,        #suspend_state{socket         = Socket1,
 					 sockmod        = SockMod,
 					 socket_monitor = SocketMonitor,
                                          timer = Timer},
@@ -211,27 +211,27 @@ handle_event(_Event, StateName, StateData) ->
 %%          {stop, Reason, NewStateData}
 %%----------------------------------------------------------------------
 %% We reached the max_inactivity timeout:
-handle_info({timeout, Timer, _}, _StateName, #state{timer = Timer} = StateData) ->
+handle_info({timeout, Timer, _}, _StateName, #suspend_state{timer = Timer} = StateData) ->
     ?INFO_MSG("Session timeout. Closing suspended session to ~p due to inactivity.", [peername(StateData)]),
     {stop, normal, StateData};
 
 handle_info({timeout, WaitTimer, _}, StateName,
-	    #state{wait_timer = WaitTimer} = StateData) ->
+	    #suspend_state{wait_timer = WaitTimer} = StateData) ->
     if true ->
-	    cancel_timer(StateData#state.timer),
-	    Timer = set_inactivity_timer(StateData#state.pause,
-					 StateData#state.max_inactivity),
-	    %%%gen_fsm:reply(StateData#state.http_receiver, {ok, empty}),
-	    %%%Rid = StateData#state.rid,
+	    cancel_timer(StateData#suspend_state.timer),
+	    Timer = set_inactivity_timer(StateData#suspend_state.pause,
+					 StateData#suspend_state.max_inactivity),
+	    %%%gen_fsm:reply(StateData#suspend_state.http_receiver, {ok, empty}),
+	    %%%Rid = StateData#suspend_state.rid,
 	    %%%ReqList = [#hbr{rid = Rid,
-			    %%%key = StateData#state.key,
+			    %%%key = StateData#suspend_state.key,
 			    %%%out = []
 			   %%%} |
-		       %%%[El || El <- StateData#state.req_list,
+		       %%%[El || El <- StateData#suspend_state.req_list,
 			      %%%El#hbr.rid /= Rid ]
 		      %%%],
 	    {next_state, StateName,
-	     StateData#state{%%%http_receiver = undefined,
+	     StateData#suspend_state{%%%http_receiver = undefined,
 			     %%%req_list = ReqList,
 			     wait_timer = undefined,
 			     timer = Timer}}
