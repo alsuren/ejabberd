@@ -78,10 +78,6 @@
 -define(FSMOPTS, []).
 -endif.
 
-%% May be a lie. I still need to read up on supervisors ;)
--define(SUPERVISOR_START, ?GEN_FSM:start(?MODULE, [SockData, Opts],
-					 fsm_limit_opts(Opts) ++ ?FSMOPTS)).
-
 %%====================================================================
 %% API
 %%====================================================================
@@ -90,20 +86,13 @@
 %% Description:
 %%--------------------------------------------------------------------
 
-start(SockData, Opts) ->
-    ?SUPERVISOR_START.
-
-start_link(SockData, Opts) ->
-    ?GEN_FSM:start_link(?MODULE, [SockData, Opts],
-			fsm_limit_opts(Opts) ++ ?FSMOPTS).
-
-sleep(ejabberd_suspend, SocketData, _Data) ->
-    {already_asleep, ejabberd_suspend, SocketData};
+sleep(ejabberd_suspend, State, _Data) ->
+    {already_asleep, ejabberd_suspend, State};
 sleep(SockMod, Socket, []) ->
-    SocketData = #suspend_state{sockmod = SockMod,
+    State = #suspend_state{sockmod = SockMod,
         socket = Socket},
-    StartedSocketData = start(SocketData, []),
-    {ok, ejabberd_suspend, StartedSocketData};
+    StartedState = start(State, []),
+    {ok, ejabberd_suspend, StartedState};
 sleep(SockMod, Socket, _Data) ->
     {notimplemented, SockMod, Socket}.
 
@@ -168,6 +157,14 @@ peername(#suspend_state{sockmod = SockMod, socket = Socket}) ->
     end.
 
 
+start(SockData, Opts) ->
+    ?GEN_FSM:start(?MODULE, SockData, fsm_limit_opts(Opts) ++ ?FSMOPTS).
+
+start_link(SockData, Opts) ->
+    ?GEN_FSM:start_link(?MODULE, SockData,
+			fsm_limit_opts(Opts) ++ ?FSMOPTS).
+
+
 %%%----------------------------------------------------------------------
 %%% Callback functions from gen_fsm
 %%%----------------------------------------------------------------------
@@ -179,21 +176,13 @@ peername(#suspend_state{sockmod = SockMod, socket = Socket}) ->
 %%          ignore                              |
 %%          {stop, StopReason}
 %%----------------------------------------------------------------------
-init([{SockMod, Socket}, _Opts]) ->
+init([State]) ->
+    #suspend_state{socket = Socket, sockmod = SockMod} = State,
     Timer = erlang:start_timer(?MAX_INACTIVITY, self(), []),
-    case false of
-	false ->
-	    Socket1 =
-		if true ->
-			Socket
-		end,
-	    SocketMonitor = SockMod:monitor(Socket1),
-	    {ok, sleeping,        #suspend_state{socket         = Socket1,
-					 sockmod        = SockMod,
-					 socket_monitor = SocketMonitor,
-                                         timer = Timer},
-	     ?MAX_INACTIVITY}
-    end.
+    SocketMonitor = SockMod:monitor(Socket),
+    {ok, sleeping,
+        State#suspend_state{ socket_monitor = SocketMonitor, timer = Timer},
+        ?MAX_INACTIVITY}.
 
 %%----------------------------------------------------------------------
 %% Func: handle_event/3
