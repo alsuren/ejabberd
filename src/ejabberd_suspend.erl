@@ -62,7 +62,7 @@ sleep(ejabberd_suspend, SocketData, Data) ->
 sleep(SockMod, Socket, Data) ->
     SocketData = start(SockMod, Socket),
     %% Send the requested data out over the socket before we suspend it.
-    (SockMod):send(Socket, Data),
+    (SockMod):send_xml(Socket, Data),
     {ok, ejabberd_suspend, SocketData}.
 
 wake(ejabberd_suspend, SocketData, Data) ->

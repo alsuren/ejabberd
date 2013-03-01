@@ -2146,7 +2146,8 @@ process_fb_suspend_iq(From, To,
 	    set ->
                 R = case SubEl of
                     {xmlelement, "sleep", _, _} -> 
-                        ejabberd_suspend:sleep(StateData#state.sockmod, StateData#state.socket, {result, [SubEl]});
+                        ejabberd_suspend:sleep(StateData#state.sockmod, StateData#state.socket,
+                            jlib:iq_to_xml(IQ#iq{type = result, sub_el = [SubEl]}));
                     {xmlelement, "wake", _, _} -> {result, [SubEl]};
                     _ -> ?ERROR_MSG("Couldn't match '~p' against '~p' or '~p'",
                             [SubEl,
