@@ -1107,12 +1107,10 @@ session_established2(El, StateData) ->
 				 Xmlns == ?NS_BLOCKING ->
 				process_privacy_iq(
 				  FromJID, ToJID, IQ, StateData);
-			    #iq{xmlns = Xmlns} = IQ
-			    when Xmlns == ?NS_GOOGLE_QUEUE ->
+			    #iq{xmlns = Xmlns} = IQ when Xmlns == ?NS_GOOGLE_QUEUE ->
                                 process_google_queue_iq(
                                   FromJID, ToJID, IQ, StateData);
-			    #iq{xmlns = Xmlns} = IQ
-			    when Xmlns == ?NS_FB_SUSPEND ->
+			    #iq{xmlns = Xmlns} = IQ when Xmlns == ?NS_FB_SUSPEND ->
                                 process_fb_suspend_iq(
                                   FromJID, ToJID, IQ, StateData);
 			    _ ->
@@ -2144,22 +2142,20 @@ process_fb_suspend_iq(From, To,
 		R = {error, ?ERR_FEATURE_NOT_IMPLEMENTED},
 		{R, StateData};
 	    set ->
-                R = case SubEl of
+                case SubEl of
                     {xmlelement, "sleep", _, _} -> 
-                        ejabberd_suspend:sleep(StateData#state.sockmod, StateData#state.socket,
-                            jlib:iq_to_xml(IQ#iq{type = result, sub_el = [SubEl]}));
-                    {xmlelement, "wake", _, _} -> {result, [SubEl]};
+                        {ok, SockMod, Socket} = ejabberd_suspend:sleep(StateData#state.sockmod, StateData#state.socket, []),
+                        {{result, [SubEl]}, StateData#state{sockmod = SockMod, socket = Socket}};
+                    {xmlelement, "wake", _, _} -> {{result, [SubEl]}, StateData};
                     _ -> ?ERROR_MSG("Couldn't match '~p' against '~p' or '~p'",
                             [SubEl,
                                 {xmlelement, "sleep", "_"},
                                 {xmlelement, "wake", "_"}]),
-                        {error, ?ERR_INTERNAL_SERVER_ERROR}
-                end,
-		{R, StateData}
+                        {{error, ?ERR_INTERNAL_SERVER_ERROR}, StateData}
+                end
 	end,
     IQRes =
 	case Res of
-            {ok, _} -> ok;
 	    {result, Result} ->
                 IQ#iq{type = result, sub_el = Result};
 	    {error, Error} ->
