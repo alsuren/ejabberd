@@ -96,11 +96,10 @@
 
 sleep(ejabberd_suspend, SockData, _Data) ->
     {already_asleep, ejabberd_suspend, SockData};
-sleep(SockMod, Socket, []) ->
+sleep(SockMod, Socket, Data) ->
     {ok, Pid} = start_link([Socket, SockMod], []),
-    {ok, ejabberd_suspend, #sockdata{sockmod = SockMod, socket = Socket, fsmref = Pid}};
-sleep(SockMod, Socket, _Data) ->
-    {notimplemented, SockMod, Socket}.
+    (SockMod):send(Socket, Data),
+    {ok, ejabberd_suspend, #sockdata{sockmod = SockMod, socket = Socket, fsmref = Pid}}.
 
 wake(ejabberd_suspend, SockData, Data) ->
     gen_fsm:sync_send_all_state_event(SockData#sockdata.fsmref, {wake}),
@@ -124,11 +123,6 @@ send(#sockdata{fsmref = FsmRef}, Packet) ->
 
 send_xml(#sockdata{fsmref = FsmRef}, Packet) ->
     gen_fsm:sync_send_all_state_event(FsmRef, {send_xml, Packet}).
-
-handle_sync_event({send_xml, Packet}, _From, StateName, StateData) ->
-    Output = [Packet | StateData#suspend_state.output],
-    Reply = ok,
-    {reply, Reply, StateName, StateData#suspend_state{output = Output}}.
 
 %% Blindly proxy these calls down the chain.
 reset_stream(SocketData) ->
@@ -198,6 +192,16 @@ init([Socket, SockMod]) ->
 %%----------------------------------------------------------------------
 handle_event(_Event, StateName, StateData) ->
     {next_state, StateName, StateData}.
+
+handle_sync_event({send_xml, Packet}, _From, StateName, StateData) ->
+    Output = [Packet | StateData#suspend_state.output],
+    Reply = ok,
+    {reply, Reply, StateName, StateData#suspend_state{output = Output}};
+
+handle_sync_event({send, Packet}, _From, StateName, StateData) ->
+    Output = [Packet | StateData#suspend_state.output],
+    Reply = ok,
+    {reply, Reply, StateName, StateData#suspend_state{output = Output}}.
 
 %%----------------------------------------------------------------------
 %% Func: handle_info/3
