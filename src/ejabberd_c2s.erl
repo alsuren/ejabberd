@@ -2147,7 +2147,14 @@ process_fb_suspend_iq(From, To,
                         {ok, SockMod, Socket} = ejabberd_suspend:sleep(StateData#state.sockmod, StateData#state.socket,
                             xml:element_to_binary(jlib:iq_to_xml(IQ#iq{type = result, sub_el = [SubEl]}))),
                         {{result, [SubEl]}, StateData#state{sockmod = SockMod, socket = Socket}};
-                    {xmlelement, "wake", _, _} -> {{result, [SubEl]}, StateData};
+                    {xmlelement, "wake", _, _} -> 
+                        {ok, SockMod, Socket} = ejabberd_suspend:wake(StateData#state.sockmod, StateData#state.socket,
+                            xml:element_to_binary(jlib:iq_to_xml(IQ#iq{type = result, sub_el = [SubEl]}))),
+                        {{result, [SubEl]}, StateData#state{sockmod = SockMod, socket = Socket}};
+                    {xmlelement, "flush", _, _} -> 
+                        {ok, SockMod, Socket} = ejabberd_suspend:flush(StateData#state.sockmod, StateData#state.socket,
+                            xml:element_to_binary(jlib:iq_to_xml(IQ#iq{type = result, sub_el = [SubEl]}))),
+                        {{result, [SubEl]}, StateData#state{sockmod = SockMod, socket = Socket}};
                     _ -> ?ERROR_MSG("Couldn't match '~p' against '~p' or '~p'",
                             [SubEl,
                                 {xmlelement, "sleep", "_"},
