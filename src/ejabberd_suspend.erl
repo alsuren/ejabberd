@@ -102,11 +102,11 @@ sleep(SockMod, Socket, Data) ->
     {ok, ejabberd_suspend, #sockdata{sockmod = SockMod, socket = Socket, fsmref = Pid}}.
 
 wake(ejabberd_suspend, SockData, Data) ->
-    gen_fsm:sync_send_all_state_event(SockData#sockdata.fsmref, {wake}),
+    #sockdata{fsmref = FsmRef, sockmod = SockMod, socket = Socket} = SockData,
+    gen_fsm:sync_send_all_state_event(FsmRef, {flush_socket}),
     %% Take ourself out of the equation (note that we don't actually intercept
     %% any c2s traffic: only s2c traffic, so we just need to shut ourselves down
     %% and return the original sockmod and socket that we were passed.
-    #sockdata{sockmod = SockMod, socket = Socket} = SockData,
     (SockMod):send(Socket, Data),
     {ok, SockMod, Socket};
 wake(SockMod, Socket, _) ->
@@ -192,6 +192,12 @@ init([Socket, SockMod]) ->
 %%----------------------------------------------------------------------
 handle_event(_Event, StateName, StateData) ->
     {next_state, StateName, StateData}.
+
+handle_sync_event({flush_socket}, _From, StateName, StateData) ->
+    #suspend_state{output = Output, sockmod = SockMod, socket = Socket} = StateData,
+    [(SockMod):send(Socket, O) || O <- Output],
+    Reply = ok,
+    {reply, Reply, StateName, StateData#suspend_state{output = []}};
 
 handle_sync_event({send_xml, Packet}, _From, StateName, StateData) ->
     Output = [Packet | StateData#suspend_state.output],
