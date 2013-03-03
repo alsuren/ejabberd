@@ -2146,15 +2146,14 @@ process_fb_suspend_iq(From, To,
                     {xmlelement, "sleep", _, _} -> 
                         {ok, SockMod, Socket} = ejabberd_suspend:sleep(StateData#state.sockmod, StateData#state.socket,
                             xml:element_to_binary(jlib:iq_to_xml(IQ#iq{type = result, sub_el = [SubEl]}))),
-                        {{result, [SubEl]}, StateData#state{sockmod = SockMod, socket = Socket}};
+                        done;
                     {xmlelement, "wake", _, _} -> 
-                        {ok, SockMod, Socket} = ejabberd_suspend:wake(StateData#state.sockmod, StateData#state.socket,
-                            xml:element_to_binary(jlib:iq_to_xml(IQ#iq{type = result, sub_el = [SubEl]}))),
+                        {ok, SockMod, Socket} = ejabberd_suspend:wake(StateData#state.sockmod, StateData#state.socket, []),
                         {{result, [SubEl]}, StateData#state{sockmod = SockMod, socket = Socket}};
                     {xmlelement, "flush", _, _} -> 
                         {ok, SockMod, Socket} = ejabberd_suspend:flush(StateData#state.sockmod, StateData#state.socket,
                             xml:element_to_binary(jlib:iq_to_xml(IQ#iq{type = result, sub_el = [SubEl]}))),
-                        {{result, [SubEl]}, StateData#state{sockmod = SockMod, socket = Socket}};
+                        done;
                     _ -> ?ERROR_MSG("Couldn't match '~p' against '~p' or '~p'",
                             [SubEl,
                                 {xmlelement, "sleep", "_"},
@@ -2164,12 +2163,14 @@ process_fb_suspend_iq(From, To,
 	end,
     IQRes =
 	case Res of
+            done -> done;
 	    {result, Result} ->
                 IQ#iq{type = result, sub_el = Result};
 	    {error, Error} ->
 		IQ#iq{type = error, sub_el = [SubEl, Error]}
 	end,
-    if IQRes == ok -> ok;
+    if
+        IQRes == done -> pass;
         true ->
             ejabberd_router:route(
                 To, From, jlib:iq_to_xml(IQRes))
