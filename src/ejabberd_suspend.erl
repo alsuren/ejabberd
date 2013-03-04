@@ -1,11 +1,12 @@
 %%%----------------------------------------------------------------------
-%%% File    : ejabberd_socket.erl
-%%% Author  : Alexey Shchepin <alexey@process-one.net>
-%%% Purpose : Socket with zlib and TLS support library
-%%% Created : 23 Aug 2006 by Alexey Shchepin <alexey@process-one.net>
+%%% File    : ejabberd_suspend.erl
+%%% Author  : David Laban <alsuren@gmail.com>
+%%% Purpose : Socket with the ability to queue/flush outbound traffic.
+%%% Created : 1 Mar 2013 by David Laban <alsuren@gmail.com>
 %%%
 %%%
 %%% ejabberd, Copyright (C) 2002-2013   ProcessOne
+%%%           Copyright (C) 2013        David Laban
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -25,7 +26,7 @@
 %%%----------------------------------------------------------------------
 
 -module(ejabberd_suspend).
--author('alexey@process-one.net').
+-author('alsuren@gmail.com').
 
 -define(MAX_WAIT, 3600). % max num of secs to keep a request on hold
 -define(MAX_INACTIVITY, 30000). % msecs to wait before terminating
