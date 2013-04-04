@@ -1107,6 +1107,9 @@ session_established2(El, StateData) ->
 				 Xmlns == ?NS_BLOCKING ->
 				process_privacy_iq(
 				  FromJID, ToJID, IQ, StateData);
+			    #iq{xmlns = Xmlns} = IQ when Xmlns == ?NS_FB_SUSPEND ->
+                                process_fb_suspend_iq(
+                                  FromJID, ToJID, IQ, StateData);
 			    _ ->
 				ejabberd_hooks:run(
 				  user_send_packet,
@@ -2101,6 +2104,51 @@ process_privacy_iq(From, To,
     ejabberd_router:route(
       To, From, jlib:iq_to_xml(IQRes)),
     NewStateData.
+
+
+process_fb_suspend_iq(From, To,
+                   #iq{type = Type, sub_el = SubEl} = IQ,
+                   StateData) ->
+    {Res, NewStateData} =
+        case Type of
+            get ->
+                R = {error, ?ERR_FEATURE_NOT_IMPLEMENTED},
+                {R, StateData};
+            set ->
+                {xmlelement, Name, Attrs, _} = SubEl,
+                PauseString = xml:get_attr_s("pause", Attrs),
+                ReplyPacket = xml:element_to_binary(jlib:iq_to_xml(IQ#iq{type = result, sub_el = [SubEl]})),
+                case Name of
+                    "sleep" ->
+                        {ok, SockMod, Socket} = ejabberd_suspend:sleep(StateData#state.sockmod,
+                            StateData#state.socket, PauseString, ReplyPacket),
+                        {done, StateData#state{sockmod = SockMod, socket = Socket}};
+                    "wake" ->
+                        {ok, SockMod, Socket} = ejabberd_suspend:wake(StateData#state.sockmod,
+                            StateData#state.socket, ReplyPacket),
+                        {done, StateData#state{sockmod = SockMod, socket = Socket}};
+                    "flush" ->
+                        {ok, SockMod, Socket} = ejabberd_suspend:flush(StateData#state.sockmod,
+                            StateData#state.socket, PauseString, ReplyPacket),
+                        {done, StateData#state{sockmod = SockMod, socket = Socket}};
+                    _ -> ?ERROR_MSG("Unknown suspend iq command: ~p.", [Name]),
+                        {{error, ?ERR_INTERNAL_SERVER_ERROR}, StateData}
+                end
+        end,
+    IQRes =
+        case Res of
+            done -> done;
+            {error, Error} ->
+                IQ#iq{type = error, sub_el = [SubEl, Error]}
+        end,
+    if
+        IQRes == done -> pass;
+        true ->
+            ejabberd_router:route(
+                To, From, jlib:iq_to_xml(IQRes))
+    end,
+    NewStateData.
+
 
 
 resend_offline_messages(StateData) ->

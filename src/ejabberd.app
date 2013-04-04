@@ -44,6 +44,7 @@
 	     ejabberd_service,
 	     ejabberd_sm,
 	     ejabberd_socket,
+	     ejabberd_suspend,
 	     ejabberd_sup,
 	     ejabberd_system_monitor,
 	     ejabberd_tmp_sup,
