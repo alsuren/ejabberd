@@ -1,4 +1,37 @@
 
+-- There are only 9 valid states in http://tools.ietf.org/html/rfc6121#appendix-A
+-- Numbers match up with those in "A.1. Defined States".
+select
+  ru.username,
+  ru.jid,
+  ru.subscription,
+  ru.ask
+from
+  ejabberd.rosterusers ru
+where
+  not
+  (
+    (ru.subscription = 'N' and ru.ask = 'N') -- 1.
+    or
+    (ru.subscription = 'N' and ru.ask = 'O') -- 2.
+    or
+    (ru.subscription = 'N' and ru.ask = 'I') -- 3.
+    or
+    (ru.subscription = 'N' and ru.ask = 'B') -- 4.
+    or
+    (ru.subscription = 'T' and ru.ask = 'N') -- 5.
+    or
+    (ru.subscription = 'T' and ru.ask = 'I') -- 6.
+    or
+    (ru.subscription = 'F' and ru.ask = 'N') -- 7.
+    or
+    (ru.subscription = 'F' and ru.ask = 'O') -- 8.
+    or
+    (ru.subscription = 'B' and ru.ask = 'N') -- 9.
+  )
+limit 10
+  ;
+
 -- Subscriptions within pairs of users on the local server happen in well-defined pairs.
 -- See git commit message for a full explaination
 select
